@@ -40,8 +40,14 @@ class Lectern(QMainWindow):
 
         toolBar = QToolBar(self)
 
+        self.prevAction = QAction(self.style().standardIcon(
+            QStyle.SP_ArrowBack), 'Go back', toolBar)
+        self.prevAction.setEnabled(False)
+        self.prevAction.triggered.connect(self.prevChapter)
+        toolBar.addAction(self.prevAction)
+
         self.nextAction = QAction(self.style().standardIcon(
-            QStyle.SP_ArrowForward), 'Next', toolBar)
+            QStyle.SP_ArrowForward), 'Go forward', toolBar)
         self.nextAction.setEnabled(False)
         self.nextAction.triggered.connect(self.nextChapter)
         toolBar.addAction(self.nextAction)
@@ -134,6 +140,18 @@ class Lectern(QMainWindow):
             self.nextAction.setEnabled(True)
         return ebook_info
 
+    def prevChapter(self):
+        index = self.ebook_info['index']
+        chapters = self.ebook_info['chapters']
+        if index > 0:
+            index -= 1
+            if index == 0:
+                self.prevAction.setEnabled(False)
+            url = join(self.ebook_info['temp_path'], chapters[index])
+            self.webView.setUrl(QUrl(url))
+            self.ebook_info['index'] = index
+            self.nextAction.setEnabled(True)
+
     def nextChapter(self):
         index = self.ebook_info['index']
         chapters = self.ebook_info['chapters']
@@ -144,6 +162,7 @@ class Lectern(QMainWindow):
             url = join(self.ebook_info['temp_path'], chapters[index])
             self.webView.setUrl(QUrl(url))
             self.ebook_info['index'] = index
+            self.prevAction.setEnabled(True)
 
     def closeBook(self):
         if self.ebook_info is not None and 'temp_path' in self.ebook_info:
@@ -151,9 +170,11 @@ class Lectern(QMainWindow):
                 rmtree(self.ebook_info['temp_path'])
         self.ebook_info = None
 
+        self.prevAction.setEnabled(False)
+        self.nextAction.setEnabled(False)
+
     def closeEvent(self, event):
 
-        self.nextAction.setEnabled(False)
         self.closeBook()
         super(Lectern, self).closeEvent(event)
 
