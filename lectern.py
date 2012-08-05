@@ -80,7 +80,7 @@ class Lectern(QMainWindow):
 
         if not 'META-INF/container.xml' in names:
             ebook.close()
-            QMessageBox.critical(self, 'Invalid EPUB', 'container.xml not '\
+            QMessageBox.critical(self, 'Invalid EPUB', 'container.xml not '
                     'found')
             return None
 
@@ -88,7 +88,7 @@ class Lectern(QMainWindow):
         rootfile = container_tree.xpath("//*[local-name() = 'rootfile']")
         if len(rootfile) == 0:
             ebook.close()
-            QMessageBox.critical(self, 'Invalid EPUB', 'root not found in '\
+            QMessageBox.critical(self, 'Invalid EPUB', 'root not found in '
                     'manifest')
             return None
 
@@ -136,7 +136,7 @@ class Lectern(QMainWindow):
             idref = itemref.get('idref')
             if not idref in items:
                 ebook.close()
-                QMessageBox.critical(self, 'Invalid EPUB', 'Item in spine '\
+                QMessageBox.critical(self, 'Invalid EPUB', 'Item in spine '
                         'not found in manifest')
                 return None
             ebook_info['chapters'].append(items[idref])
