@@ -17,6 +17,7 @@ from PyQt4.QtWebKit import QWebView
 from lxml import etree
 from mimetypes import guess_type
 from os.path import basename, exists, isfile, join, realpath, splitext
+import posixpath
 from shutil import rmtree
 import sys
 from zipfile import ZipFile
@@ -73,12 +74,33 @@ class Lectern(QMainWindow):
         ebook = ZipFile(path)
 
         names = ebook.namelist()
-        if not 'content.opf' in names:
+
+        from pprint import pprint
+        pprint(names)
+
+        if not 'META-INF/container.xml' in names:
+            ebook.close()
+            QMessageBox.critical(self, 'Invalid EPUB', 'container.xml not '\
+                    'found')
+            return None
+
+        container_tree = etree.parse(ebook.open('META-INF/container.xml'))
+        rootfile = container_tree.xpath("//*[local-name() = 'rootfile']")
+        if len(rootfile) == 0:
+            ebook.close()
+            QMessageBox.critical(self, 'Invalid EPUB', 'root not found in '\
+                    'manifest')
+            return None
+
+        content_opf = rootfile[0].get('full-path')
+        if content_opf is None:
             ebook.close()
             QMessageBox.critical(self, 'Invalid EPUB', 'content.opf not found')
             return None
 
-        tree = etree.parse(ebook.open('content.opf'))
+        ebook_info['opf_root'] = posixpath.dirname(content_opf)
+
+        tree = etree.parse(ebook.open(content_opf))
         manifest = tree.xpath("*[local-name() = 'manifest']")
         if len(manifest) == 0:
             ebook.close()
@@ -131,10 +153,11 @@ class Lectern(QMainWindow):
         if exists(ebook_info['temp_path']):
             rmtree(ebook_info['temp_path'])
 
-        ebook.extractall(ebook_info['temp_path'], items.values())
+        ebook.extractall(ebook_info['temp_path'])
         ebook.close()
         ebook_info['index'] = 0
-        url = join(ebook_info['temp_path'], ebook_info['chapters'][0])
+        url = join(ebook_info['temp_path'], ebook_info['opf_root'],
+                ebook_info['chapters'][0])
         self.webView.setUrl(QUrl(url))
         if len(ebook_info['chapters']) > 1:
             self.nextAction.setEnabled(True)
@@ -147,7 +170,8 @@ class Lectern(QMainWindow):
             index -= 1
             if index == 0:
                 self.prevAction.setEnabled(False)
-            url = join(self.ebook_info['temp_path'], chapters[index])
+            url = join(self.ebook_info['temp_path'],
+                    self.ebook_info['opf_root'], chapters[index])
             self.webView.setUrl(QUrl(url))
             self.ebook_info['index'] = index
             self.nextAction.setEnabled(True)
@@ -159,7 +183,8 @@ class Lectern(QMainWindow):
             index += 1
             if index == len(chapters) - 1:
                 self.nextAction.setEnabled(False)
-            url = join(self.ebook_info['temp_path'], chapters[index])
+            url = join(self.ebook_info['temp_path'],
+                    self.ebook_info['opf_root'], chapters[index])
             self.webView.setUrl(QUrl(url))
             self.ebook_info['index'] = index
             self.prevAction.setEnabled(True)
