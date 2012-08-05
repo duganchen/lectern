@@ -59,10 +59,10 @@ class Lectern(QMainWindow):
         tree = etree.parse(self.ebook.open('content.opf'))
         manifest = tree.xpath("*[local-name() = 'manifest']")[0]
         spine = tree.xpath("*[local-name() = 'spine']")[0]
-
-        print etree.tostring(manifest, pretty_print=True)
-
-        #print etree.tostring(spine, pretty_print=True)
+        idref = spine[0].get('idref')
+        href = manifest.xpath('*[@id="{0}"]'.format(idref))[0].get('href')
+        first_page = self.ebook.open(href)
+        self.webView.setHtml(first_page.read())
 
     def closeBook(self):
         if self.ebook is not None:
