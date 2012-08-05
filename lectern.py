@@ -11,8 +11,8 @@ setapi("QUrl", 2)
 
 
 from PyQt4.QtCore import QDir, QUrl
-from PyQt4.QtGui import (QApplication, QDesktopServices, QMainWindow,
-        QMessageBox)
+from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QMainWindow,
+        QMessageBox, QStyle, QToolBar)
 from PyQt4.QtWebKit import QWebView
 from lxml import etree
 from mimetypes import guess_type
@@ -36,6 +36,17 @@ class Lectern(QMainWindow):
         self.webView = QWebView(self)
         self.setCentralWidget(self.webView)
         self.ebook_info = {}
+        self.setWindowTitle('Lectern')
+
+        toolBar = QToolBar(self)
+
+        self.nextAction = QAction(self.style().standardIcon(
+            QStyle.SP_ArrowForward), 'Next', toolBar)
+        self.nextAction.setEnabled(False)
+        self.nextAction.triggered.connect(self.nextChapter)
+        toolBar.addAction(self.nextAction)
+
+        self.addToolBar(toolBar)
 
         try:
             self.ebook_info = self.openBook(QApplication.arguments()[1])
@@ -119,7 +130,20 @@ class Lectern(QMainWindow):
         ebook_info['index'] = 0
         url = join(ebook_info['temp_path'], ebook_info['chapters'][0])
         self.webView.setUrl(QUrl(url))
+        if len(ebook_info['chapters']) > 1:
+            self.nextAction.setEnabled(True)
         return ebook_info
+
+    def nextChapter(self):
+        index = self.ebook_info['index']
+        chapters = self.ebook_info['chapters']
+        if index < len(chapters) - 1:
+            index += 1
+            if index == len(chapters) - 1:
+                self.nextAction.setEnabled(False)
+            url = join(self.ebook_info['temp_path'], chapters[index])
+            self.webView.setUrl(QUrl(url))
+            self.ebook_info['index'] = index
 
     def closeBook(self):
         if self.ebook_info is not None and 'temp_path' in self.ebook_info:
@@ -129,6 +153,7 @@ class Lectern(QMainWindow):
 
     def closeEvent(self, event):
 
+        self.nextAction.setEnabled(False)
         self.closeBook()
         super(Lectern, self).closeEvent(event)
 
