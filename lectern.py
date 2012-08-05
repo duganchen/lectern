@@ -75,9 +75,6 @@ class Lectern(QMainWindow):
 
         names = ebook.namelist()
 
-        from pprint import pprint
-        pprint(names)
-
         if not 'META-INF/container.xml' in names:
             ebook.close()
             QMessageBox.critical(self, 'Invalid EPUB', 'container.xml not '
@@ -146,6 +143,13 @@ class Lectern(QMainWindow):
             QMessageBox.critical(self, 'Invalid EPUB', 'Content not found')
             return None
 
+        toc = tree.xpath("//*[@href='toc.ncx']")
+        if len(toc) > 0:
+            toc_file = posixpath.join(ebook_info['opf_root'], 'toc.ncx')
+            toc_tree = etree.parse(ebook.open(toc_file))
+
+            print etree.tostring(toc_tree, pretty_print=True)
+
         temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
             QDesktopServices.TempLocation))
 
@@ -154,6 +158,7 @@ class Lectern(QMainWindow):
             rmtree(ebook_info['temp_path'])
 
         ebook.extractall(ebook_info['temp_path'])
+
         ebook.close()
         ebook_info['index'] = 0
         url = join(ebook_info['temp_path'], ebook_info['opf_root'],
