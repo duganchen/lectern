@@ -10,7 +10,7 @@ setapi("QString", 2)
 setapi("QUrl", 2)
 
 
-from PyQt4.QtCore import QDir
+from PyQt4.QtCore import QDir, QUrl
 from PyQt4.QtGui import (QApplication, QDesktopServices, QMainWindow,
         QMessageBox)
 from PyQt4.QtWebKit import QWebView
@@ -102,6 +102,8 @@ class Lectern(QMainWindow):
             rmtree(temp)
 
         self.ebook.extractall(temp, items.values())
+
+        self.webView.setUrl(QUrl(join(temp, chapters[0])))
 
     def closeBook(self):
         if self.ebook is not None:
