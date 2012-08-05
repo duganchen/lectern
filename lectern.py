@@ -12,6 +12,7 @@ setapi("QUrl", 2)
 
 from PyQt4.QtGui import (QApplication, QMainWindow, QMessageBox)
 from PyQt4.QtWebKit import QWebView
+from lxml import etree
 from mimetypes import guess_type
 from os.path import isfile, realpath
 import sys
@@ -40,7 +41,6 @@ class Lectern(QMainWindow):
 
     def openBook(self, path):
         path = realpath(path)
-        print path
         if not isfile(path):
             QMessageBox.critical(self, 'File not found', 'File not found')
             return None
@@ -56,7 +56,13 @@ class Lectern(QMainWindow):
         if not 'content.opf' in names:
             QMessageBox.critical(self, 'Invalid EPUB', 'Invalid EPUB')
 
-        print self.ebook.open('content.opf').read()
+        tree = etree.parse(self.ebook.open('content.opf'))
+        manifest = tree.xpath("*[local-name() = 'manifest']")[0]
+        spine = tree.xpath("*[local-name() = 'spine']")[0]
+
+        print etree.tostring(manifest, pretty_print=True)
+
+        #print etree.tostring(spine, pretty_print=True)
 
     def closeBook(self):
         if self.ebook is not None:
