@@ -148,7 +148,13 @@ class Lectern(QMainWindow):
             toc_file = posixpath.join(ebook_info['opf_root'], 'toc.ncx')
             toc_tree = etree.parse(ebook.open(toc_file))
 
-            print etree.tostring(toc_tree, pretty_print=True)
+            navMap = toc_tree.xpath("//*[local-name() = 'navMap']")
+            if len(navMap) > 0:
+                navMap = navMap[0]
+
+                print etree.tostring(navMap, pretty_print=True)
+                for navPoint in navMap:
+                    print navPoint
 
         temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
             QDesktopServices.TempLocation))
