@@ -10,11 +10,14 @@ setapi("QString", 2)
 setapi("QUrl", 2)
 
 
-from PyQt4.QtGui import (QApplication, QMainWindow, QMessageBox)
+from PyQt4.QtCore import QDir
+from PyQt4.QtGui import (QApplication, QDesktopServices, QMainWindow,
+        QMessageBox)
 from PyQt4.QtWebKit import QWebView
 from lxml import etree
 from mimetypes import guess_type
-from os.path import isfile, realpath
+from os.path import basename, exists, isfile, join, realpath, splitext
+from shutil import rmtree
 import sys
 from zipfile import ZipFile
 
@@ -64,6 +67,19 @@ class Lectern(QMainWindow):
             return None
         manifest = manifest[0]
 
+        items = {}
+        for item in manifest:
+            item_id = item.get('id')
+            if item_id is None:
+                QMessageBox.critical(self, 'Invalid EPUB', 'Item has no id')
+                return None
+
+            href = item.get('href')
+            if href is None:
+                QMessageBox.critical(self, 'Invalid EPUB', 'Item has no href')
+
+            items[item_id] = href
+
         spine = tree.xpath("*[local-name() = 'spine']")
         if len(spine) == 0:
             QMessageBox.critical(self, 'Invalid EPUB', 'Spine not found')
@@ -73,15 +89,19 @@ class Lectern(QMainWindow):
         chapters = []
         for itemref in spine:
             idref = itemref.get('idref')
-            item = manifest.xpath('*[@id="{0}"]'.format(idref))
-            if len(item) == 0:
+            if not idref in items:
                 QMessageBox.critical(self, 'Invalid EPUB', 'Item in spine '\
                         'not found in manifest')
-            item = item[0]
-            chapters.append(item.get('href'))
+            chapters.append(items[idref])
 
-        from pprint import pprint
-        pprint(chapters)
+        temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
+            QDesktopServices.TempLocation))
+
+        temp = join(temp, splitext(basename(path))[0])
+        if exists(temp):
+            rmtree(temp)
+
+        self.ebook.extractall(temp, items.values())
 
     def closeBook(self):
         if self.ebook is not None:
