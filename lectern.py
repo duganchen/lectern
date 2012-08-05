@@ -35,34 +35,36 @@ class Lectern(QMainWindow):
         super(Lectern, self).__init__(parent)
         self.webView = QWebView(self)
         self.setCentralWidget(self.webView)
-        self.ebook = None
+        self.ebook_info = {}
 
         try:
-            self.openBook(QApplication.arguments()[1])
+            self.ebook_info = self.openBook(QApplication.arguments()[1])
         except IndexError:
             pass
 
     def openBook(self, path):
+        ebook_info = {}
         path = realpath(path)
         if not isfile(path):
             QMessageBox.critical(self, 'File not found', 'File not found')
-            return None
 
         mimetype, _ = guess_type(path)
         if mimetype != 'application/epub+zip':
             QMessageBox.critical(self, 'Not an EPUB', 'Not an EPUB')
             return None
 
-        self.ebook = ZipFile(path)
+        ebook = ZipFile(path)
 
-        names = self.ebook.namelist()
+        names = ebook.namelist()
         if not 'content.opf' in names:
+            ebook.close()
             QMessageBox.critical(self, 'Invalid EPUB', 'content.opf not found')
             return None
 
-        tree = etree.parse(self.ebook.open('content.opf'))
+        tree = etree.parse(ebook.open('content.opf'))
         manifest = tree.xpath("*[local-name() = 'manifest']")
         if len(manifest) == 0:
+            ebook.close()
             QMessageBox.critical(self, 'Invalid EPUB', 'Manifest not found')
             return None
         manifest = manifest[0]
@@ -71,48 +73,62 @@ class Lectern(QMainWindow):
         for item in manifest:
             item_id = item.get('id')
             if item_id is None:
+                ebook.close()
                 QMessageBox.critical(self, 'Invalid EPUB', 'Item has no id')
                 return None
 
             href = item.get('href')
             if href is None:
+                ebook.close()
                 QMessageBox.critical(self, 'Invalid EPUB', 'Item has no href')
+                return None
 
             items[item_id] = href
 
         spine = tree.xpath("*[local-name() = 'spine']")
         if len(spine) == 0:
+            ebook.close()
             QMessageBox.critical(self, 'Invalid EPUB', 'Spine not found')
             return None
         spine = spine[0]
 
-        chapters = []
+        ebook_info['chapters'] = []
         for itemref in spine:
             idref = itemref.get('idref')
             if not idref in items:
+                ebook.close()
                 QMessageBox.critical(self, 'Invalid EPUB', 'Item in spine '\
                         'not found in manifest')
-            chapters.append(items[idref])
+                return None
+            ebook_info['chapters'].append(items[idref])
+
+        if len(ebook_info['chapters']) == 0:
+            ebook.close()
+            QMessageBox.critical(self, 'Invalid EPUB', 'Content not found')
+            return None
 
         temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
             QDesktopServices.TempLocation))
 
-        temp = join(temp, splitext(basename(path))[0])
-        if exists(temp):
-            rmtree(temp)
+        ebook_info['temp_path'] = join(temp, splitext(basename(path))[0])
+        if exists(ebook_info['temp_path']):
+            rmtree(ebook_info['temp_path'])
 
-        self.ebook.extractall(temp, items.values())
-
-        self.webView.setUrl(QUrl(join(temp, chapters[0])))
+        ebook.extractall(ebook_info['temp_path'], items.values())
+        ebook.close()
+        ebook_info['index'] = 0
+        url = join(ebook_info['temp_path'], ebook_info['chapters'][0])
+        self.webView.setUrl(QUrl(url))
+        return ebook_info
 
     def closeBook(self):
-        if self.ebook is not None:
-            self.ebook.close()
-            self.ebook = None
+        if self.ebook_info is not None and 'temp_path' in self.ebook_info:
+            if exists(self.ebook_info['temp_path']):
+                rmtree(self.ebook_info['temp_path'])
+        self.ebook_info = None
 
     def closeEvent(self, event):
 
-        print 'Closing'
         self.closeBook()
         super(Lectern, self).closeEvent(event)
 
