@@ -54,15 +54,34 @@ class Lectern(QMainWindow):
 
         names = self.ebook.namelist()
         if not 'content.opf' in names:
-            QMessageBox.critical(self, 'Invalid EPUB', 'Invalid EPUB')
+            QMessageBox.critical(self, 'Invalid EPUB', 'content.opf not found')
+            return None
 
         tree = etree.parse(self.ebook.open('content.opf'))
-        manifest = tree.xpath("*[local-name() = 'manifest']")[0]
-        spine = tree.xpath("*[local-name() = 'spine']")[0]
-        idref = spine[0].get('idref')
-        href = manifest.xpath('*[@id="{0}"]'.format(idref))[0].get('href')
-        first_page = self.ebook.open(href)
-        self.webView.setHtml(first_page.read())
+        manifest = tree.xpath("*[local-name() = 'manifest']")
+        if len(manifest) == 0:
+            QMessageBox.critical(self, 'Invalid EPUB', 'Manifest not found')
+            return None
+        manifest = manifest[0]
+
+        spine = tree.xpath("*[local-name() = 'spine']")
+        if len(spine) == 0:
+            QMessageBox.critical(self, 'Invalid EPUB', 'Spine not found')
+            return None
+        spine = spine[0]
+
+        chapters = []
+        for itemref in spine:
+            idref = itemref.get('idref')
+            item = manifest.xpath('*[@id="{0}"]'.format(idref))
+            if len(item) == 0:
+                QMessageBox.critical(self, 'Invalid EPUB', 'Item in spine '\
+                        'not found in manifest')
+            item = item[0]
+            chapters.append(item.get('href'))
+
+        from pprint import pprint
+        pprint(chapters)
 
     def closeBook(self):
         if self.ebook is not None:
