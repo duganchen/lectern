@@ -10,9 +10,9 @@ setapi("QString", 2)
 setapi("QUrl", 2)
 
 
-from PyQt4.QtCore import QDir, QUrl
+from PyQt4.QtCore import QAbstractItemModel, QDir, QModelIndex, Qt, QUrl
 from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QMainWindow,
-        QMessageBox, QStyle, QToolBar)
+        QMessageBox, QSplitter, QStyle, QToolBar, QTreeView)
 from PyQt4.QtWebKit import QWebView
 from lxml import etree
 from mimetypes import guess_type
@@ -34,8 +34,16 @@ class Lectern(QMainWindow):
 
     def __init__(self, parent=None):
         super(Lectern, self).__init__(parent)
+
+        splitter = QSplitter()
+        tocView = QTreeView()
+        self.tocModel = TableOfContents()
+        tocView.setModel(self.tocModel)
+        splitter.addWidget(tocView)
         self.webView = QWebView(self)
-        self.setCentralWidget(self.webView)
+        splitter.addWidget(self.webView)
+        self.setCentralWidget(splitter)
+
         self.ebook_info = {}
         self.setWindowTitle('Lectern')
 
@@ -74,9 +82,6 @@ class Lectern(QMainWindow):
         ebook = ZipFile(path)
 
         names = ebook.namelist()
-
-        from pprint import pprint
-        pprint(names)
 
         if not 'META-INF/container.xml' in names:
             ebook.close()
@@ -202,6 +207,46 @@ class Lectern(QMainWindow):
 
         self.closeBook()
         super(Lectern, self).closeEvent(event)
+
+
+class TableOfContents(QAbstractItemModel):
+
+    def __init__(self, parent=None):
+        super(TableOfContents, self).__init__(parent)
+        self.__children = []
+
+    def columnCount(self, parent=QModelIndex()):
+        return 1
+
+    def data(index, role=Qt.DisplayRole):
+        return index.internalPointer().text
+
+    def index(self, row, column, parent=QModelIndex()):
+        if parent.isValid():
+            return self.createIndex(row, column, parent.internalPointer()[row])
+        return self.createIndex(row, column, self.__children[row])
+
+    def rowCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return len(self.__children)
+        return len(parent.internalPointer())
+
+
+class NavPoint(object):
+
+    def __init__(self):
+        self.__children = []
+
+    def __len__(self):
+        return len(self.__children)
+
+    def append(self, item):
+        item.parent = self
+        self.__children.append(item)
+
+    def __getitem__(self, key):
+        return self.__children[key]
+
 
 if __name__ == '__main__':
     main()
