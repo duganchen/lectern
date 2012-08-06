@@ -281,6 +281,12 @@ class NavPoint(object):
         item.parent = self
         self.__children.append(item)
 
+    @property
+    def row(self):
+        if self.parent is not None:
+            return self.parent.__children.index(self)
+        return 0
+
     def __getitem__(self, key):
         return self.__children[key]
 
