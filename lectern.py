@@ -39,6 +39,7 @@ class Lectern(QMainWindow):
         tocView = QTreeView()
         self.tocModel = TableOfContents()
         tocView.setModel(self.tocModel)
+        tocView.expandAll()
         splitter.addWidget(tocView)
         self.webView = QWebView(self)
         splitter.addWidget(self.webView)
