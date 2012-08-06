@@ -213,29 +213,66 @@ class TableOfContents(QAbstractItemModel):
 
     def __init__(self, parent=None):
         super(TableOfContents, self).__init__(parent)
-        self.__children = []
+        self.__rootItem = NavPoint('', '')
+        a = NavPoint('a', 'b')
+        a.append(NavPoint('b', 'c'))
+        self.__rootItem.append(a)
 
     def columnCount(self, parent=QModelIndex()):
         return 1
 
-    def data(index, role=Qt.DisplayRole):
-        return index.internalPointer().text
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return None
+        if role != Qt.DisplayRole:
+            return None
+        item = index.internalPointer()
+        return item.text
 
     def index(self, row, column, parent=QModelIndex()):
-        if parent.isValid():
-            return self.createIndex(row, column, parent.internalPointer()[row])
-        return self.createIndex(row, column, self.__children[row])
+        if not self.hasIndex(row, column, parent):
+            return QModelIndex()
+
+        if not parent.isValid():
+            parentItem = self.__rootItem
+        else:
+            parentItem = parent.internalPointer()
+
+        try:
+            return self.createIndex(row, column, parentItem[row])
+        except IndexError:
+            return QModelIndex()
+
+    def parent(self, index):
+        if not index.isValid():
+            return QModelIndex()
+        childItem = index.internalPointer()
+        parentItem = childItem.parent
+
+        if parentItem == self.__rootItem:
+            return QModelIndex()
+
+        return self.createIndex(parentItem.row, 0, parentItem)
 
     def rowCount(self, parent=QModelIndex()):
-        if parent.isValid():
-            return len(self.__children)
-        return len(parent.internalPointer())
+        if parent.column() > 0:
+            return 0
+
+        if not parent.isValid():
+            parentItem = self.__rootItem
+        else:
+            parentItem = parent.internalPointer()
+
+        return len(parentItem)
 
 
 class NavPoint(object):
 
-    def __init__(self):
+    def __init__(self, text, src):
         self.__children = []
+        self.text = text
+        self.src = src
+        self.parent = None
 
     def __len__(self):
         return len(self.__children)
