@@ -37,6 +37,7 @@ class Lectern(QMainWindow):
 
         splitter = QSplitter()
         tocView = QTreeView()
+        tocView.clicked.connect(self.navTo)
         self.tocModel = TableOfContents()
         tocView.setModel(self.tocModel)
         tocView.expandAll()
@@ -218,6 +219,13 @@ class Lectern(QMainWindow):
 
         self.closeBook()
         super(Lectern, self).closeEvent(event)
+
+    def navTo(self, index):
+        navPoint = index.internalPointer()
+        href = posixpath.join(self.ebook_info['temp_path'],
+                self.ebook_info['opf_root'], navPoint.src)
+        url = QUrl.fromEncoded(href)
+        self.webView.setUrl(url)
 
 
 class TableOfContents(QAbstractItemModel):
