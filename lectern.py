@@ -158,7 +158,9 @@ class Lectern(QMainWindow):
             toc_path = posixpath.join(ebook_info['opf_root'], 'toc.ncx')
             if toc_path in names:
                 toc_tree = etree.parse(ebook.open(toc_path))
-                print etree.tostring(toc_tree, pretty_print=True)
+                navMap = toc_tree.xpath("//*[local-name() = 'navMap']")
+                if len(navMap) > 0:
+                    self.tocModel.importNavMap(navMap[0])
 
         temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
             QDesktopServices.TempLocation))
@@ -222,10 +224,15 @@ class TableOfContents(QAbstractItemModel):
 
     def __init__(self, parent=None):
         super(TableOfContents, self).__init__(parent)
-        self.__rootItem = NavPoint('', '')
-        a = NavPoint('a', 'b')
-        a.append(NavPoint('b', 'c'))
-        self.__rootItem.append(a)
+        self.__rootItem = NavPoint()
+
+    def importNavMap(self, navMap):
+        self.beginRemoveRows(QModelIndex(), 0, len(self.__rootItem) - 1)
+        self.__rootItem.empty()
+        self.endRemoveRows()
+
+        for navPoint in navMap.xpath("*[local-name() = 'navPoint']"):
+            self.__rootItem.importNavPoint(navPoint)
 
     def columnCount(self, parent=QModelIndex()):
         return 1
@@ -277,11 +284,14 @@ class TableOfContents(QAbstractItemModel):
 
 class NavPoint(object):
 
-    def __init__(self, text, src):
+    def __init__(self):
         self.__children = []
-        self.text = text
-        self.src = src
+        self.text = None
+        self.src = None
         self.parent = None
+
+    def __getitem__(self, key):
+        return self.__children[key]
 
     def __len__(self):
         return len(self.__children)
@@ -290,15 +300,25 @@ class NavPoint(object):
         item.parent = self
         self.__children.append(item)
 
+    def empty(self):
+        del self.__children[:]
+
+    def importNavPoint(self, xml):
+        self.text = xml.xpath("*[local-name() = 'navLabel']/"
+                "*[local-name() = 'text']")[0].text
+
+        self.src = xml.xpath("*[local-name() = 'content']")[0].get('src')
+
+        for navPoint in xml.xpath("*[local-name() = 'navPoint']"):
+            navItem = NavPoint()
+            navItem.importNavPoint(navPoint)
+            self.append(navItem)
+
     @property
     def row(self):
         if self.parent is not None:
             return self.parent.__children.index(self)
         return 0
-
-    def __getitem__(self, key):
-        return self.__children[key]
-
 
 if __name__ == '__main__':
     main()
