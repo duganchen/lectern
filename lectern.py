@@ -152,6 +152,14 @@ class Lectern(QMainWindow):
             QMessageBox.critical(self, 'Invalid EPUB', 'Content not found')
             return None
 
+        # Table of contents
+        toc = tree.find("//*[@href='toc.ncx']")
+        if toc is not None:
+            toc_path = posixpath.join(ebook_info['opf_root'], 'toc.ncx')
+            if toc_path in names:
+                toc_tree = etree.parse(ebook.open(toc_path))
+                print etree.tostring(toc_tree, pretty_print=True)
+
         temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
             QDesktopServices.TempLocation))
 
