@@ -43,6 +43,7 @@ class Lectern(QMainWindow):
         tocView.expandAll()
         splitter.addWidget(tocView)
         self.webView = QWebView(self)
+        self.webView.loadFinished.connect(self.handleLoad)
         splitter.addWidget(self.webView)
         self.setCentralWidget(splitter)
 
@@ -224,8 +225,18 @@ class Lectern(QMainWindow):
         navPoint = index.internalPointer()
         href = posixpath.join(self.ebook_info['temp_path'],
                 self.ebook_info['opf_root'], navPoint.src)
+
+        try:
+            _, self.anchor = href.split('#')
+        except ValueError:
+            self.anchor = None
+
         url = QUrl.fromEncoded(href)
         self.webView.setUrl(url)
+
+    def handleLoad(self, ok):
+        if self.anchor is not None:
+            self.webView.page().mainFrame().scrollToAnchor(self.anchor)
 
 
 class TableOfContents(QAbstractItemModel):
