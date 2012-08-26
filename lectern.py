@@ -34,6 +34,7 @@ class Lectern(QMainWindow):
 
     def __init__(self, parent=None):
         super(Lectern, self).__init__(parent)
+        self.anchor = None
 
         splitter = QSplitter()
         tocView = QTreeView()
@@ -227,10 +228,14 @@ class Lectern(QMainWindow):
                 self.ebook_info['opf_root'], navPoint.src)
 
         try:
-            _, self.anchor = href.split('#')
+            path, anchor = href.split('#')
+            if path == self.webView.url().path():
+                self.webView.page().mainFrame().scrollToAnchor(anchor)
+                return
+            else:
+                self.anchor = anchor
         except ValueError:
-            self.anchor = None
-
+            pass
         url = QUrl.fromEncoded(href)
         self.webView.setUrl(url)
 
