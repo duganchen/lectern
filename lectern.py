@@ -10,7 +10,8 @@ setapi("QString", 2)
 setapi("QUrl", 2)
 
 
-from PyQt4.QtCore import QAbstractItemModel, QDir, QModelIndex, Qt, QUrl
+from PyQt4.QtCore import (QAbstractItemModel, QDir, QModelIndex, Qt, QUrl,
+        pyqtSignal)
 from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QMainWindow,
         QMessageBox, QSplitter, QStyle, QToolBar, QTreeView)
 from PyQt4.QtWebKit import QWebView
@@ -37,12 +38,13 @@ class Lectern(QMainWindow):
         self.anchor = None
 
         splitter = QSplitter()
-        tocView = QTreeView()
-        tocView.clicked.connect(self.navTo)
+        self.tocView = QTreeView()
+        self.tocView.clicked.connect(self.navTo)
         self.tocModel = TableOfContents()
-        tocView.setModel(self.tocModel)
-        tocView.expandAll()
-        splitter.addWidget(tocView)
+        self.tocModel.isEmpty.connect(self.handleTOCLoad)
+        self.tocView.setModel(self.tocModel)
+        self.tocView.expandAll()
+        splitter.addWidget(self.tocView)
         self.webView = QWebView(self)
         self.webView.loadFinished.connect(self.handleLoad)
         splitter.addWidget(self.webView)
@@ -243,8 +245,15 @@ class Lectern(QMainWindow):
         if self.anchor is not None:
             self.webView.page().mainFrame().scrollToAnchor(self.anchor)
 
+    def handleTOCLoad(self, isEmpty):
+        if isEmpty:
+            self.tocView.hide()
+        else:
+            self.tocView.show()
+
 
 class TableOfContents(QAbstractItemModel):
+    isEmpty = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super(TableOfContents, self).__init__(parent)
@@ -257,6 +266,7 @@ class TableOfContents(QAbstractItemModel):
 
         for navPoint in navMap.xpath("*[local-name() = 'navPoint']"):
             self.__rootItem.importNavPoint(navPoint)
+        self.isEmpty.emit(len(self.__rootItem) == 0)
 
     def columnCount(self, parent=QModelIndex()):
         return 1
