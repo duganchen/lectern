@@ -11,9 +11,10 @@ setapi("QUrl", 2)
 
 
 from PyQt4.QtCore import (QAbstractItemModel, QDir, QModelIndex, Qt, QUrl,
-        pyqtSignal)
-from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QMainWindow,
-        QMessageBox, QSplitter, QStyle, QToolBar, QTreeView)
+                          pyqtSignal)
+from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QFileDialog,
+                         QMainWindow, QMessageBox, QSplitter, QStyle, QToolBar,
+                         QTreeView)
 from PyQt4.QtWebKit import QWebView
 from lxml import etree
 from mimetypes import guess_type
@@ -44,6 +45,7 @@ class Lectern(QMainWindow):
         self.tocModel.isEmpty.connect(self.handleTOCLoad)
         self.tocView.setModel(self.tocModel)
         self.tocView.expandAll()
+        self.tocView.hide()
         splitter.addWidget(self.tocView)
         self.webView = QWebView(self)
         self.webView.loadFinished.connect(self.handleLoad)
@@ -54,6 +56,11 @@ class Lectern(QMainWindow):
         self.setWindowTitle('Lectern')
 
         toolBar = QToolBar(self)
+
+        chooseAction = QAction(self.style().standardIcon(
+            QStyle.SP_DialogOpenButton), 'Open', toolBar)
+        chooseAction.triggered.connect(self.chooseEbook)
+        toolBar.addAction(chooseAction)
 
         self.prevAction = QAction(self.style().standardIcon(
             QStyle.SP_ArrowBack), 'Go back', toolBar)
@@ -73,6 +80,21 @@ class Lectern(QMainWindow):
             self.ebook_info = self.openBook(QApplication.arguments()[1])
         except IndexError:
             pass
+
+    def chooseEbook(self):
+
+        path = QFileDialog.getOpenFileName(self, 'Choose EPUB', QDesktopServices.storageLocation(
+            QDesktopServices.DocumentsLocation),'EPUBs (*.epub)')
+
+        if path is None:
+            return
+
+        if self.ebook_info is not None and 'temp_path' in self.ebook_info:
+            if exists(self.ebook_info['temp_path']):
+                rmtree(self.ebook_info['temp_path'])
+
+        path = QDir.toNativeSeparators(path)
+        self.ebook_info = self.openBook(path)
 
     def openBook(self, path):
         ebook_info = {}
@@ -216,6 +238,7 @@ class Lectern(QMainWindow):
                 rmtree(self.ebook_info['temp_path'])
         self.ebook_info = None
 
+        self.tocView.hide()
         self.prevAction.setEnabled(False)
         self.nextAction.setEnabled(False)
 
