@@ -10,18 +10,20 @@ setapi("QString", 2)
 setapi("QUrl", 2)
 
 
-from PyQt4.QtCore import (QAbstractItemModel, QDir, QModelIndex, Qt, QUrl,
-                          pyqtSignal)
+from PyQt4.QtCore import (QAbstractItemModel, QDir, QModelIndex, QSizeF, Qt,
+                          QUrl, pyqtSignal)
 from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QFileDialog,
-                         QMainWindow, QMessageBox, QSplitter, QStyle, QToolBar,
-                         QTreeView)
-from PyQt4.QtWebKit import QWebView
+                         QFrame, QGraphicsScene, QGraphicsView, QMainWindow,
+                         QMessageBox, QSplitter, QStyle, QToolBar, QTreeView)
+from PyQt4.QtOpenGL import QGLWidget
+from PyQt4.QtWebKit import QGraphicsWebView
 from lxml import etree
 from mimetypes import guess_type
 from os.path import basename, exists, isfile, join, realpath, splitext
 import posixpath
 from shutil import rmtree
 import sys
+from uuid import uuid4
 from zipfile import ZipFile
 
 
@@ -47,9 +49,19 @@ class Lectern(QMainWindow):
         self.tocView.expandAll()
         self.tocView.hide()
         splitter.addWidget(self.tocView)
-        self.webView = QWebView(self)
+
+        self.webView = QGraphicsWebView()
+        frame = self.webView.page().mainFrame()
+        scene = QGraphicsScene()
+        scene.addItem(self.webView)
+        self.graphicsView = GraphicsView(scene)
+        self.graphicsView.setFrameShape(QFrame.NoFrame)
+        glWidget = QGLWidget(self)
+        self.graphicsView.setViewport(glWidget)
+
         self.webView.loadFinished.connect(self.handleLoad)
-        splitter.addWidget(self.webView)
+
+        splitter.addWidget(self.graphicsView)
         self.setCentralWidget(splitter)
 
         self.ebook_info = {}
@@ -82,11 +94,10 @@ class Lectern(QMainWindow):
             pass
 
     def chooseEbook(self):
-
         path = QFileDialog.getOpenFileName(self, 'Choose EPUB', QDesktopServices.storageLocation(
             QDesktopServices.DocumentsLocation),'EPUBs (*.epub)')
 
-        if path is None:
+        if not isfile(path):
             return
 
         if self.ebook_info is not None and 'temp_path' in self.ebook_info:
@@ -192,7 +203,9 @@ class Lectern(QMainWindow):
         temp = QDir.toNativeSeparators(QDesktopServices.storageLocation(
             QDesktopServices.TempLocation))
 
-        ebook_info['temp_path'] = join(temp, splitext(basename(path))[0])
+        # In case we have two copies of Lectern opening the same book.
+        filename = '{0}-{1}'.format(splitext(basename(path))[0], uuid4())
+        ebook_info['temp_path'] = join(temp, filename)
         if exists(ebook_info['temp_path']):
             rmtree(ebook_info['temp_path'])
 
@@ -246,6 +259,9 @@ class Lectern(QMainWindow):
 
         self.closeBook()
         super(Lectern, self).closeEvent(event)
+
+        # Suppress "cannot make invalid context current" warnings
+        sys.exit(0)
 
     def navTo(self, index):
         navPoint = index.internalPointer()
@@ -376,6 +392,23 @@ class NavPoint(object):
         if self.parent is not None:
             return self.parent.__children.index(self)
         return 0
+
+
+class GraphicsView(QGraphicsView):
+
+    def __init__(self, scene, parent=None):
+        super(GraphicsView, self).__init__(scene, parent)
+
+    def resizeEvent(self, e):
+        rect = self.sceneRect()
+        rect.setSize(QSizeF(self.viewport().size()))
+        self.setSceneRect(rect)
+        width = self.viewport().width()
+        height = self.viewport().height()
+
+        for item in self.scene().items():
+            # Just the GraphicsWebView.
+            item.resize(width, height)
 
 if __name__ == '__main__':
     main()
