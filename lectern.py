@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+# coding=utf-8
 
 from sip import setapi
 setapi("QDate", 2)
@@ -14,7 +14,8 @@ from PyQt4.QtCore import (QAbstractItemModel, QDir, QModelIndex, QSizeF, Qt,
                           QUrl, pyqtSignal)
 from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QFileDialog,
                          QFrame, QGraphicsScene, QGraphicsView, QMainWindow,
-                         QMessageBox, QSplitter, QStyle, QToolBar, QTreeView)
+                         QMessageBox, QSplitter, QStyle, QToolBar, QTreeView,
+                         QMenu, QMenuBar)
 from PyQt4.QtOpenGL import QGLWidget
 from PyQt4.QtWebKit import QGraphicsWebView
 from lxml import etree
@@ -39,6 +40,9 @@ class Lectern(QMainWindow):
     def __init__(self, parent=None):
         super(Lectern, self).__init__(parent)
         self.anchor = None
+        
+        self.initMainMenu()
+        self.initToolbar()
 
         splitter = QSplitter()
         self.tocView = QTreeView()
@@ -67,6 +71,41 @@ class Lectern(QMainWindow):
         self.ebook_info = {}
         self.setWindowTitle('Lectern')
 
+        try:
+            self.ebook_info = self.openBook(QApplication.arguments()[1])
+        except IndexError:
+            pass
+            
+    def initMainMenu(self):
+        menuBar = self.menuBar()
+        menuBar.setNativeMenuBar(True)
+        
+        # TODO: add CROSS-PLATFORM shortcut keys. (e.g. For Quit, use ⌘Q on Mac OS X, ALT-F4 elsewhere)
+        fileMenu = QMenu('File', menuBar)
+        navMenu = QMenu('Navigate', menuBar)
+        
+        # File Menu
+        openAction = QAction('Open', fileMenu)
+        openAction.triggered.connect(self.chooseEbook)
+        fileMenu.addAction(openAction)
+        
+        quitAction = QAction('Quit', fileMenu)
+        quitAction.triggered.connect(self.closeEvent)
+        fileMenu.addAction(quitAction)
+        
+        # Nav Menu
+        prevChatperAction = QAction('Previous Chapter', navMenu)
+        prevChatperAction.triggered.connect(self.prevChapter)
+        navMenu.addAction(prevChatperAction)
+        
+        nextChatperAction = QAction('Next Chapter', navMenu)
+        nextChatperAction.triggered.connect(self.nextChapter)
+        navMenu.addAction(nextChatperAction)
+        
+        menuBar.addMenu(fileMenu)
+        menuBar.addMenu(navMenu)
+    
+    def initToolbar(self):
         toolBar = QToolBar(self)
 
         chooseAction = QAction(self.style().standardIcon(
@@ -88,13 +127,8 @@ class Lectern(QMainWindow):
 
         self.addToolBar(toolBar)
 
-        try:
-            self.ebook_info = self.openBook(QApplication.arguments()[1])
-        except IndexError:
-            pass
-
     def chooseEbook(self):
-        path = QFileDialog.getOpenFileName(self, 'Choose EPUB', QDesktopServices.storageLocation(
+        path = QFileDialog.getOpenFileName(self, 'Open eBook', QDesktopServices.storageLocation(
             QDesktopServices.DocumentsLocation),'EPUBs (*.epub)')
 
         if not isfile(path):
@@ -255,7 +289,9 @@ class Lectern(QMainWindow):
         self.prevAction.setEnabled(False)
         self.nextAction.setEnabled(False)
 
-    def closeEvent(self, event):
+    def closeEvent(self, event = 0):
+        if(event == 0):
+            event = PyQt4.QtGui.QCloseEvent()
 
         self.closeBook()
         super(Lectern, self).closeEvent(event)
@@ -282,6 +318,7 @@ class Lectern(QMainWindow):
 
     def handleLoad(self, ok):
         if self.anchor is not None:
+            self.webView.page().mainFrame().addToJavaScriptWindowObject("app", self);
             self.webView.page().mainFrame().scrollToAnchor(self.anchor)
 
     def handleTOCLoad(self, isEmpty):
