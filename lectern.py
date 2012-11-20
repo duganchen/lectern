@@ -11,7 +11,7 @@ setapi("QUrl", 2)
 
 
 from PyQt4.QtCore import (QAbstractItemModel, QDir, QModelIndex, QSizeF, Qt,
-                          QUrl, pyqtSignal)
+                          QUrl, pyqtSignal, pyqtProperty)
 from PyQt4.QtGui import (QAction, QApplication, QDesktopServices, QFileDialog,
                          QFrame, QGraphicsScene, QGraphicsView, QMainWindow,
                          QMessageBox, QSplitter, QStyle, QToolBar, QTreeView,
@@ -20,7 +20,8 @@ from PyQt4.QtOpenGL import QGLWidget
 from PyQt4.QtWebKit import QGraphicsWebView
 from lxml import etree
 from mimetypes import guess_type
-from os.path import basename, exists, isfile, join, realpath, splitext
+from os.path import basename, dirname, exists, isfile, join, realpath, abspath, splitext
+import inspect
 import posixpath
 from shutil import rmtree
 import sys
@@ -40,6 +41,8 @@ class Lectern(QMainWindow):
     def __init__(self, parent=None):
         super(Lectern, self).__init__(parent)
         self.anchor = None
+        
+        self._path = dirname(abspath(inspect.getfile(inspect.currentframe())))
         
         self.initMainMenu()
         self.initToolbar()
@@ -64,17 +67,20 @@ class Lectern(QMainWindow):
         self.graphicsView.setViewport(glWidget)
 
         self.webView.loadFinished.connect(self.handleLoad)
+        self.webView.page().mainFrame().javaScriptWindowObjectCleared.connect(self.handleJSWindowCleared);
 
         splitter.addWidget(self.graphicsView)
         self.setCentralWidget(splitter)
 
         self.ebook_info = {}
         self.setWindowTitle('Lectern')
+        
+        self.webView.setUrl(QUrl(join(self._path, 'content', 'app.html')))
 
-        try:
-            self.ebook_info = self.openBook(QApplication.arguments()[1])
-        except IndexError:
-            pass
+        # try:
+        #     self.ebook_info = self.openBook(QApplication.arguments()[1])
+        # except IndexError:
+        #    pass
             
     def initMainMenu(self):
         menuBar = self.menuBar()
@@ -248,7 +254,7 @@ class Lectern(QMainWindow):
         ebook_info['index'] = 0
         url = join(ebook_info['temp_path'], ebook_info['opf_root'],
                 ebook_info['chapters'][0])
-        self.webView.setUrl(QUrl(url))
+        # self.webView.setUrl(QUrl(url))
         if len(ebook_info['chapters']) > 1:
             self.nextAction.setEnabled(True)
         return ebook_info
@@ -318,15 +324,20 @@ class Lectern(QMainWindow):
 
     def handleLoad(self, ok):
         if self.anchor is not None:
-            self.webView.page().mainFrame().addToJavaScriptWindowObject("app", self);
             self.webView.page().mainFrame().scrollToAnchor(self.anchor)
+
+    def handleJSWindowCleared(self):
+        self.webView.page().mainFrame().addToJavaScriptWindowObject("app", self);
+
+    @pyqtProperty(str)
+    def path(self):
+        return self._path
 
     def handleTOCLoad(self, isEmpty):
         if isEmpty:
             self.tocView.hide()
         else:
-            self.tocView.show()
-
+            self.tocView.show() 
 
 class TableOfContents(QAbstractItemModel):
     isEmpty = pyqtSignal(bool)
